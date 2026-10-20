@@ -84,9 +84,180 @@ export const cardStyles = css`
     display: none;
   }
 
+  /* Copy controls */
+  .copy-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 16px;
+  }
+
+  .copy-label {
+    color: var(--secondary-text-color);
+    font-size: 13px;
+    margin-right: 2px;
+  }
+
+  .copy-source {
+    min-height: 32px;
+    border: 1px solid var(--divider-color, #e0e0e0);
+    border-radius: 8px;
+    background: var(--card-background-color);
+    color: var(--primary-text-color);
+    font: inherit;
+    font-size: 13px;
+    padding: 0 8px;
+  }
+
+  .copy-button {
+    appearance: none;
+    border: 0;
+    border-radius: 8px;
+    background: var(--primary-color);
+    color: var(--text-primary-color, #fff);
+    cursor: pointer;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 32px;
+    min-height: 32px;
+    padding: 0 12px;
+  }
+
+  .copy-button:hover {
+    filter: brightness(1.08);
+  }
+
+  .copy-button:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+  }
+
   /* Schedule row container */
   .schedule-container {
     width: 100%;
+  }
+
+  /* Weekly layout */
+  .weekly-grid-wrapper {
+    max-height: 520px;
+    overflow: auto;
+    border: 1px solid var(--divider-color, #e0e0e0);
+    border-radius: var(--border-radius);
+  }
+
+  .weekly-grid {
+    display: grid;
+    grid-template-columns: 54px repeat(7, minmax(40px, 1fr));
+    min-width: 520px;
+  }
+
+  .weekly-time-header,
+  .weekly-day-header,
+  .weekly-time-label,
+  .weekly-cell {
+    box-sizing: border-box;
+    border-right: 1px solid var(--weekly-grid-line-color);
+    border-bottom: 1px solid var(--weekly-grid-line-color);
+  }
+
+  .weekly-time-header,
+  .weekly-day-header {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    min-height: 36px;
+    background: var(--card-background-color);
+    color: var(--primary-text-color);
+    font-size: 11px;
+    font-weight: 600;
+    text-align: center;
+  }
+
+  .weekly-time-header {
+    display: grid;
+    place-items: center;
+    color: var(--secondary-text-color);
+  }
+
+  .weekly-day-header {
+    border-top: 0;
+    border-left: 0;
+    border-radius: 0;
+    cursor: pointer;
+  }
+
+  .weekly-day-header.copy-source {
+    background: var(--primary-color);
+    color: var(--text-primary-color, #fff);
+    box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.22);
+  }
+
+  .weekly-day-header.current-day:not(.copy-source) {
+    background: color-mix(in srgb, var(--primary-color) 18%, var(--card-background-color));
+    color: var(--primary-color);
+  }
+
+  .weekly-time-label {
+    min-height: 18px;
+    padding-right: 6px;
+    color: var(--secondary-text-color);
+    font-size: 9px;
+    line-height: 18px;
+    text-align: right;
+  }
+
+  .weekly-cell {
+    min-height: 22px;
+    appearance: none;
+    border-top: 0;
+    border-left: 0;
+    cursor: pointer;
+    font: inherit;
+    font-size: 9px;
+    font-weight: 600;
+    line-height: 20px;
+    overflow: hidden;
+    padding: 0 2px;
+    text-align: center;
+    text-transform: uppercase;
+  }
+
+  .weekly-cell ha-icon {
+    --mdc-icon-size: 14px;
+    display: inline-block;
+    height: 14px;
+    vertical-align: middle;
+    width: 14px;
+  }
+
+  .weekly-cell-content {
+    align-items: center;
+    display: inline-flex;
+    gap: 3px;
+    justify-content: center;
+    max-width: 100%;
+    white-space: nowrap;
+  }
+
+  .weekly-cell-content ha-icon {
+    flex: 0 0 auto;
+  }
+
+  .weekly-cell:hover:not(:disabled) {
+    filter: brightness(0.9);
+  }
+
+  .weekly-cell:disabled {
+    cursor: default;
+  }
+
+  .weekly-cell.current-slot {
+    outline: 2px solid var(--current-slot-outline);
+    outline-offset: -2px;
+    position: relative;
+    z-index: 1;
   }
 
   .schedule-row-wrapper {
@@ -198,6 +369,38 @@ export const cardStyles = css`
     .day-tab {
       font-size: 11px;
       padding: 6px 2px;
+    }
+
+    .copy-controls {
+      gap: 6px;
+    }
+
+    .copy-label {
+      margin-left: 0;
+    }
+
+    .copy-source {
+      flex: 1 1 auto;
+    }
+
+    .copy-button {
+      flex: 1 1 30%;
+      padding: 0 8px;
+    }
+
+    .weekly-grid {
+      grid-template-columns: 48px repeat(7, minmax(36px, 1fr));
+      min-width: 470px;
+    }
+
+    .weekly-time-label,
+    .weekly-cell {
+      min-height: 20px;
+    }
+
+    .weekly-time-label {
+      line-height: 20px;
+      font-size: 8px;
     }
 
     .time-label {

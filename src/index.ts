@@ -6,3 +6,4 @@
  */
 
 export { EconextScheduleCard } from './econext-schedule-card';
+import './econext-schedule-card-editor';

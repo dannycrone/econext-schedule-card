@@ -40,6 +40,12 @@ export interface EconextScheduleCardConfig {
   schedule_entity_prefix: string;
   /** Optional card title */
   title?: string;
+  /** Display one selected day or all seven days in a weekly grid (default: tabs) */
+  layout?: 'tabs' | 'weekly';
+  /** In weekly layout, show every half-hour label or only whole-hour labels (default: hour) */
+  weekly_time_label_mode?: 'all' | 'hour';
+  /** In weekly layout, show no cell content, state text, or active/inactive icons (default: none) */
+  weekly_cell_label_mode?: 'none' | 'state' | 'icon' | 'state_icon';
   /** Allow editing by clicking cells (default: true) */
   editable?: boolean;
   /** Show time labels on the left (default: true) */
@@ -52,6 +58,22 @@ export interface EconextScheduleCardConfig {
   active_color?: string;
   /** Color for inactive slots (default: #e0e0e0) */
   inactive_color?: string;
+  /** Optional colour for weekly-grid lines */
+  grid_line_color?: string;
+  /** Text used for active cells when weekly_cell_label_mode is state (default: On) */
+  active_label?: string;
+  /** Text used for inactive cells when weekly_cell_label_mode is state (default: Off) */
+  inactive_label?: string;
+  /** MDI icon used for active cells when weekly_cell_label_mode is icon */
+  active_icon?: string;
+  /** MDI icon used for inactive cells when weekly_cell_label_mode is icon */
+  inactive_icon?: string;
+  /** Optional text colour for active labelled cells */
+  active_text_color?: string;
+  /** Optional text colour for inactive labelled cells */
+  inactive_text_color?: string;
+  /** Show controls to copy the currently selected day to other days (default: false) */
+  show_copy_controls?: boolean;
 }
 
 // Internal schedule data structure

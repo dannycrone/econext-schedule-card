@@ -82,6 +82,10 @@ export class EconextScheduleCard extends LitElement {
     };
   }
 
+  public static getConfigElement(): HTMLElement {
+    return document.createElement('econext-schedule-card-editor');
+  }
+
   private _getEntityId(day: DayKey, period: 'am' | 'pm'): string {
     return `${this._config!.schedule_entity_prefix}_${day}_${period}`;
   }
@@ -135,6 +139,40 @@ export class EconextScheduleCard extends LitElement {
     this._pendingValues.set(entityId, newValue);
 
     this._scheduleSend(entityId);
+  }
+
+  private _copySelectedDayTo(targetDays: DayKey[]): void {
+    if (!this._config?.editable || !this.hass) return;
+
+    const sourceDay = this._buildDaySchedule(this._selectedDay);
+    if (!sourceDay) return;
+
+    const pending = new Map(this._pendingValues);
+    const entityIdsToSend: string[] = [];
+
+    for (const day of targetDays) {
+      if (day === this._selectedDay) continue;
+
+      const amEntityId = this._getEntityId(day, 'am');
+      const pmEntityId = this._getEntityId(day, 'pm');
+
+      // Avoid unnecessary writes when the target already matches the source.
+      if (this._getEffectiveValue(amEntityId) !== sourceDay.amValue) {
+        pending.set(amEntityId, sourceDay.amValue);
+        entityIdsToSend.push(amEntityId);
+      }
+      if (this._getEffectiveValue(pmEntityId) !== sourceDay.pmValue) {
+        pending.set(pmEntityId, sourceDay.pmValue);
+        entityIdsToSend.push(pmEntityId);
+      }
+    }
+
+    if (entityIdsToSend.length === 0) return;
+
+    this._pendingValues = pending;
+    for (const entityId of entityIdsToSend) {
+      this._enqueueFlush(entityId);
+    }
   }
 
   private _scheduleSend(entityId: string): void {
@@ -314,21 +352,24 @@ export class EconextScheduleCard extends LitElement {
             `
           : nothing}
 
-        <!-- Day tabs -->
-        <div class="day-tabs">
-          ${DAYS_ORDER.map(day => html`
-            <button
-              class="day-tab ${classMap({
-                active: day === this._selectedDay,
-                'current-day': this._config!.highlight_current_day !== false && day === currentDay,
-                error: this._hasErrorForDay(day),
-              })}"
-              @click=${() => { this._selectedDay = day; }}
-            >
-              ${DAY_LABELS[day]}
-            </button>
-          `)}
-        </div>
+        ${this._config.layout !== 'weekly'
+          ? html`
+              <div class="day-tabs">
+                ${DAYS_ORDER.map(day => html`
+                  <button
+                    class="day-tab ${classMap({
+                      active: day === this._selectedDay,
+                      'current-day': this._config!.highlight_current_day !== false && day === currentDay,
+                      error: this._hasErrorForDay(day),
+                    })}"
+                    @click=${() => { this._selectedDay = day; }}
+                  >
+                    ${DAY_LABELS[day]}
+                  </button>
+                `)}
+              </div>
+            `
+          : nothing}
 
         ${this._hasErrorForDay(this._selectedDay)
           ? html`
@@ -338,25 +379,146 @@ export class EconextScheduleCard extends LitElement {
             `
           : nothing}
 
-        <!-- Schedule row -->
-        <div class="schedule-container">
-          <div class="schedule-row-wrapper">
-            ${selectedDaySchedule
-              ? this._renderScheduleRow(
-                  selectedDaySchedule,
-                  this._selectedDay === currentDay,
-                  currentSlot,
-                  activeColor,
-                  inactiveColor
-                )
-              : this._renderEmptyRow()}
+        ${this._config.show_copy_controls && this._config.editable !== false
+          ? this._renderCopyControls()
+          : nothing}
 
-            ${this._config.show_time_labels !== false
-              ? this._renderTimeLabels()
-              : nothing}
-          </div>
-        </div>
+        ${this._config.layout === 'weekly'
+          ? this._renderWeeklyGrid(currentDay, currentSlot, activeColor, inactiveColor)
+          : html`
+              <div class="schedule-container">
+                <div class="schedule-row-wrapper">
+                  ${selectedDaySchedule
+                    ? this._renderScheduleRow(
+                        selectedDaySchedule,
+                        this._selectedDay === currentDay,
+                        currentSlot,
+                        activeColor,
+                        inactiveColor
+                      )
+                    : this._renderEmptyRow()}
+
+                  ${this._config.show_time_labels !== false
+                    ? this._renderTimeLabels()
+                    : nothing}
+                </div>
+              </div>
+            `}
       </ha-card>
+    `;
+  }
+
+  private _renderCopyControls(): TemplateResult {
+    const sourceLabel = DAY_LABELS[this._selectedDay];
+    const weekdays: DayKey[] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+    const weekend: DayKey[] = ['saturday', 'sunday'];
+
+    return html`
+      <div class="copy-controls" role="group" aria-label="Copy ${sourceLabel} schedule">
+        <label class="copy-label" for="copy-source">Copy from</label>
+        <select
+          id="copy-source"
+          class="copy-source"
+          @change=${(event: Event) => {
+            this._selectedDay = (event.target as HTMLSelectElement).value as DayKey;
+          }}
+        >
+          ${DAYS_ORDER.map(day => html`
+            <option value=${day} ?selected=${day === this._selectedDay}>${DAY_LABELS[day]}</option>
+          `)}
+        </select>
+        <button class="copy-button" @click=${() => this._copySelectedDayTo(DAYS_ORDER)}>
+          Copy to all
+        </button>
+        <button class="copy-button" @click=${() => this._copySelectedDayTo(weekdays)}>
+          Copy to weekdays
+        </button>
+        <button class="copy-button" @click=${() => this._copySelectedDayTo(weekend)}>
+          Copy to weekend
+        </button>
+      </div>
+    `;
+  }
+
+  private _renderWeeklyGrid(
+    currentDay: DayKey,
+    currentSlot: number,
+    activeColor: string,
+    inactiveColor: string
+  ): TemplateResult {
+    const editable = this._config?.editable !== false;
+    const timeLabelMode = this._config?.weekly_time_label_mode ?? 'hour';
+    const labelMode = this._config?.weekly_cell_label_mode;
+    const showCellLabels = labelMode === 'state' || labelMode === 'state_icon';
+    const showCellIcons = labelMode === 'icon' || labelMode === 'state_icon';
+    const gridStyle = styleMap({
+      '--weekly-grid-line-color': this._config?.grid_line_color ?? 'var(--divider-color, #e0e0e0)',
+    });
+
+    return html`
+      <div class="weekly-grid-wrapper">
+        <div class="weekly-grid" role="grid" aria-label="Weekly schedule" style=${gridStyle}>
+          <div class="weekly-time-header">Time</div>
+          ${DAYS_ORDER.map(day => html`
+            <button
+              class="weekly-day-header ${classMap({
+                'current-day': this._config!.highlight_current_day !== false && day === currentDay,
+                'copy-source': day === this._selectedDay,
+              })}"
+              aria-pressed=${day === this._selectedDay ? 'true' : 'false'}
+              @click=${() => { this._selectedDay = day; }}
+            >
+              ${DAY_LABELS[day]}
+            </button>
+          `)}
+
+          ${Array.from({ length: SLOTS_PER_DAY }, (_, slotIndex) => html`
+            <div class="weekly-time-label">
+              ${timeLabelMode === 'all' || slotIndex % 2 === 0 ? slotToTime(slotIndex) : ''}
+            </div>
+            ${DAYS_ORDER.map(day => {
+              const schedule = this._buildDaySchedule(day);
+              const active = schedule?.slots[slotIndex] ?? false;
+              const isCurrentSlotHighlight =
+                this._config?.highlight_current_slot !== false &&
+                day === currentDay &&
+                slotIndex === currentSlot;
+              const label = active
+                ? this._config?.active_label ?? 'On'
+                : this._config?.inactive_label ?? 'Off';
+              const textColor = active
+                ? this._config?.active_text_color ?? '#ffffff'
+                : this._config?.inactive_text_color ?? 'var(--primary-text-color)';
+              const icon = active
+                ? this._config?.active_icon ?? 'mdi:weather-sunny'
+                : this._config?.inactive_icon ?? 'mdi:weather-night';
+
+              return html`
+                <button
+                  class="weekly-cell ${classMap({
+                    active,
+                    inactive: !active,
+                    'current-slot': isCurrentSlotHighlight,
+                    readonly: !editable || !schedule,
+                  })}"
+                  style=${styleMap({
+                    backgroundColor: active ? activeColor : inactiveColor,
+                    color: textColor,
+                  })}
+                  title="${DAY_LABELS[day]} ${slotToTime(slotIndex)} - ${active ? 'Active' : 'Inactive'}"
+                  ?disabled=${!editable || !schedule}
+                  @click=${() => schedule && this._handleCellClick(day, slotIndex)}
+                >${showCellLabels || showCellIcons
+                  ? html`<span class="weekly-cell-content">
+                      ${showCellIcons ? html`<ha-icon .icon=${icon}></ha-icon>` : nothing}
+                      ${showCellLabels ? html`<span>${label}</span>` : nothing}
+                    </span>`
+                  : nothing}</button>
+              `;
+            })}
+          `)}
+        </div>
+      </div>
     `;
   }
 
